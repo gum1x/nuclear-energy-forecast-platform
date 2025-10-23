@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://nuclear_user:nuclear_pass@db:5432/nuclear_forecast
+      - REDIS_URL=redis://redis:6379/0
+      - EIA_API_KEY=${EIA_API_KEY}
+      - NERC_API_KEY=${NERC_API_KEY}
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=nuclear_forecast
+      - POSTGRES_USER=nuclear_user
+      - POSTGRES_PASSWORD=nuclear_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: celery -A app.celery worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://nuclear_user:nuclear_pass@db:5432/nuclear_forecast
+      - REDIS_URL=redis://redis:6379/0
+      - EIA_API_KEY=${EIA_API_KEY}
+      - NERC_API_KEY=${NERC_API_KEY}
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  scheduler:
+    build: .
+    command: celery -A app.celery beat --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://nuclear_user:nuclear_pass@db:5432/nuclear_forecast
+      - REDIS_URL=redis://redis:6379/0
+      - EIA_API_KEY=${EIA_API_KEY}
+      - NERC_API_KEY=${NERC_API_KEY}
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
