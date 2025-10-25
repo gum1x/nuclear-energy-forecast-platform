@@ -1,4 +1,3 @@
-
 import asyncio
 import numpy as np
 import pandas as pd
@@ -17,7 +16,6 @@ settings = get_settings()
 
 
 class ForecastingService(LoggerMixin):
-    
     def __init__(self):
         self.models = {
             'logistic': LogisticModel(),
@@ -45,10 +43,8 @@ class ForecastingService(LoggerMixin):
             end_year=end_year
         )
         
-        # Get historical data
         historical_data = await self._get_historical_data()
         
-        # Generate base forecasts for each model
         model_forecasts = {}
         for model_name, model in self.models.items():
             try:
@@ -63,22 +59,18 @@ class ForecastingService(LoggerMixin):
             except Exception as e:
                 self.logger.error(f"Failed to generate {model_name} forecast", error=str(e))
         
-        # Ensemble the forecasts
         ensemble_forecasts = self._ensemble_forecasts(model_forecasts, scenarios)
         
-        # Add microreactor projections if requested
         if include_microreactors:
             ensemble_forecasts = self._add_microreactor_projections(
                 ensemble_forecasts, scenarios
             )
         
-        # Store forecasts
         await self._store_forecasts(ensemble_forecasts)
         
         return ensemble_forecasts
     
     async def _get_historical_data(self) -> pd.DataFrame:
-        """Get historical electricity data"""
         async with AsyncSessionLocal() as session:
             from sqlalchemy import select
             
@@ -91,7 +83,7 @@ class ForecastingService(LoggerMixin):
                 data.append({
                     'date': record.date,
                     'nuclear_share': record.nuclear_share,
-                    'nuclear_generation_twh': record.nuclear_generation_gwh / 1000,  # Convert to TWh
+                    'nuclear_generation_twh': record.nuclear_generation_gwh / 1000,
                     'urban_demand_twh': record.urban_electricity_demand_gwh / 1000,
                     'urban_population_percent': record.urban_population_percent
                 })
@@ -103,9 +95,7 @@ class ForecastingService(LoggerMixin):
         model_forecasts: Dict[str, List[Dict]],
         scenarios: List[str]
     ) -> List[Dict]:
-        """Combine multiple model forecasts using weighted ensemble"""
         
-        # Model weights (can be learned from historical performance)
         model_weights = {
             'logistic': 0.3,
             'arima': 0.25,
@@ -117,7 +107,6 @@ class ForecastingService(LoggerMixin):
         
         for scenario in scenarios:
             for year in range(settings.forecast_start_year, settings.forecast_end_year + 1):
-                # Collect predictions from all models for this year/scenario
                 predictions = {}
                 for model_name, forecasts in model_forecasts.items():
                     if forecasts:
@@ -129,7 +118,6 @@ class ForecastingService(LoggerMixin):
                             predictions[model_name] = year_data
                 
                 if predictions:
-                    # Weighted average of predictions
                     weighted_nuclear_share = sum(
                         pred['nuclear_share'] * model_weights.get(model_name, 0)
                         for model_name, pred in predictions.items()
@@ -151,7 +139,7 @@ class ForecastingService(LoggerMixin):
                         'nuclear_share': weighted_nuclear_share,
                         'nuclear_generation_twh': weighted_nuclear_generation,
                         'urban_demand_twh': weighted_urban_demand,
-                        'microreactor_units': 0,  # Will be calculated separately
+                        'microreactor_units': 0,
                         'microreactor_generation_twh': 0,
                         'microreactor_share_of_nuclear': 0,
                         'model_version': self.current_model_version
@@ -164,7 +152,6 @@ class ForecastingService(LoggerMixin):
         forecasts: List[Dict],
         scenarios: List[str]
     ) -> List[Dict]:
-        """Add microreactor projections to forecasts"""
         
         microreactor_params = {
             'conservative': {'max_units': 3000, 'max_share': 0.10},
@@ -180,7 +167,7 @@ class ForecastingService(LoggerMixin):
                 params = microreactor_params[scenario]
                 
                 units = self._calculate_microreactor_units(year, params['max_units'])
-                generation_twh = units * 1.5 * 0.9 * 8760 / 1e6  # 1.5 MW, 90% CF
+                generation_twh = units * 1.5 * 0.9 * 8760 / 1e6
                 
                 max_generation = forecast['nuclear_generation_twh'] * params['max_share']
                 generation_twh = min(generation_twh, max_generation)
@@ -195,7 +182,6 @@ class ForecastingService(LoggerMixin):
         return forecasts
     
     def _calculate_microreactor_units(self, year: int, max_units: int) -> float:
-        """Calculate microreactor units using logistic growth"""
         start_year = 2028
         inflection_year = 2035
         growth_rate = 0.35
@@ -203,17 +189,14 @@ class ForecastingService(LoggerMixin):
         if year < start_year:
             return 0
         
-        # Logistic growth formula
         t = year - inflection_year
         logistic_value = 1 / (1 + np.exp(-growth_rate * t))
         
-        # Scale to max_units by 2050
         scale_factor = max_units / (1 / (1 + np.exp(-growth_rate * (2050 - inflection_year))))
         
         return logistic_value * scale_factor
     
     async def _store_forecasts(self, forecasts: List[Dict]):
-        """Store forecasts in database"""
         async with AsyncSessionLocal() as session:
             try:
                 for forecast in forecasts:
@@ -229,7 +212,6 @@ class ForecastingService(LoggerMixin):
                 raise
     
     async def start_model_retraining(self):
-        """Start periodic model retraining"""
         while True:
             try:
                 self.logger.info("Starting model retraining")
@@ -238,10 +220,9 @@ class ForecastingService(LoggerMixin):
             except Exception as e:
                 self.logger.error("Model retraining failed", error=str(e))
             
-            await asyncio.sleep(settings.model_retrain_interval * 3600)  # Convert hours to seconds
+            await asyncio.sleep(settings.model_retrain_interval * 3600)
     
     async def _retrain_models(self):
-        """Retrain all forecasting models"""
         historical_data = await self._get_historical_data()
         
         for model_name, model in self.models.items():
@@ -253,8 +234,6 @@ class ForecastingService(LoggerMixin):
 
 
 class BaseForecastingModel:
-    """Base class for forecasting models"""
-    
     def __init__(self):
         self.is_trained = False
         self.model = None
@@ -266,17 +245,13 @@ class BaseForecastingModel:
         end_year: int,
         scenarios: List[str]
     ) -> List[Dict]:
-        """Generate forecasts"""
         raise NotImplementedError
     
     async def retrain(self, historical_data: pd.DataFrame):
-        """Retrain the model"""
         raise NotImplementedError
 
 
 class LogisticModel(BaseForecastingModel):
-    """Logistic growth model for nuclear share"""
-    
     async def forecast(
         self,
         historical_data: pd.DataFrame,
@@ -284,18 +259,14 @@ class LogisticModel(BaseForecastingModel):
         end_year: int,
         scenarios: List[str]
     ) -> List[Dict]:
-        """Generate logistic growth forecasts"""
         
-        # Fit logistic curve to nuclear share
         years = historical_data['date'].dt.year.values
         nuclear_share = historical_data['nuclear_share'].values
         
-        # Simple logistic fit (can be enhanced with scipy.optimize)
         K, r, t0 = self._fit_logistic(years, nuclear_share)
         
         forecasts = []
         for scenario in scenarios:
-            # Adjust parameters based on scenario
             scenario_params = self._get_scenario_params(scenario, K, r, t0)
             
             for year in range(start_year, end_year + 1):
@@ -303,8 +274,7 @@ class LogisticModel(BaseForecastingModel):
                     year, scenario_params['K'], scenario_params['r'], scenario_params['t0']
                 )
                 
-                # Estimate other variables (simplified)
-                urban_demand_growth = 0.012  # 1.2% annual growth
+                urban_demand_growth = 0.012
                 base_year = historical_data['date'].dt.year.max()
                 years_from_base = year - base_year
                 
@@ -330,8 +300,6 @@ class LogisticModel(BaseForecastingModel):
         return forecasts
     
     def _fit_logistic(self, years: np.ndarray, values: np.ndarray) -> Tuple[float, float, float]:
-        """Fit logistic curve using grid search"""
-        # Simplified logistic fitting
         K_range = (0.3, 0.8)
         r_range = (0.01, 0.1)
         t0_range = (2000, 2040)
@@ -352,11 +320,9 @@ class LogisticModel(BaseForecastingModel):
         return best_params
     
     def _logistic_function(self, t: float, K: float, r: float, t0: float) -> float:
-        """Logistic function"""
         return K / (1 + np.exp(-r * (t - t0)))
     
     def _get_scenario_params(self, scenario: str, K: float, r: float, t0: float) -> Dict:
-        """Get scenario-adjusted parameters"""
         scenario_adjustments = {
             'conservative': {'K_mult': 0.8, 'r_mult': 0.7},
             'base': {'K_mult': 1.0, 'r_mult': 1.0},
@@ -371,14 +337,10 @@ class LogisticModel(BaseForecastingModel):
         }
     
     async def retrain(self, historical_data: pd.DataFrame):
-        """Retrain logistic model"""
-        # For logistic model, retraining is just refitting
         self.is_trained = True
 
 
 class ARIMAModel(BaseForecastingModel):
-    """ARIMA time series model"""
-    
     async def forecast(
         self,
         historical_data: pd.DataFrame,
@@ -386,14 +348,10 @@ class ARIMAModel(BaseForecastingModel):
         end_year: int,
         scenarios: List[str]
     ) -> List[Dict]:
-        """Generate ARIMA forecasts"""
-        # Simplified ARIMA implementation
-        # In production, would use statsmodels or similar
         
         forecasts = []
         nuclear_share_series = historical_data['nuclear_share'].values
         
-        # Simple trend extrapolation (placeholder for ARIMA)
         trend = np.polyfit(range(len(nuclear_share_series)), nuclear_share_series, 1)
         
         for scenario in scenarios:
@@ -405,15 +363,14 @@ class ARIMAModel(BaseForecastingModel):
                     nuclear_share_series[-1] + trend[0] * years_ahead
                 ) * scenario_multiplier
                 
-                # Ensure reasonable bounds
                 nuclear_share_pred = max(0, min(1, nuclear_share_pred))
                 
                 forecasts.append({
                     'scenario_name': scenario,
                     'year': year,
                     'nuclear_share': nuclear_share_pred,
-                    'nuclear_generation_twh': nuclear_share_pred * 4000,  # Simplified
-                    'urban_demand_twh': 4000,  # Simplified
+                    'nuclear_generation_twh': nuclear_share_pred * 4000,
+                    'urban_demand_twh': 4000,
                     'microreactor_units': 0,
                     'microreactor_generation_twh': 0,
                     'microreactor_share_of_nuclear': 0,
@@ -423,13 +380,10 @@ class ARIMAModel(BaseForecastingModel):
         return forecasts
     
     async def retrain(self, historical_data: pd.DataFrame):
-        """Retrain ARIMA model"""
         self.is_trained = True
 
 
 class ProphetModel(BaseForecastingModel):
-    """Facebook Prophet model"""
-    
     async def forecast(
         self,
         historical_data: pd.DataFrame,
@@ -437,16 +391,12 @@ class ProphetModel(BaseForecastingModel):
         end_year: int,
         scenarios: List[str]
     ) -> List[Dict]:
-        """Generate Prophet forecasts"""
-        # Simplified Prophet implementation
-        # In production, would use fbprophet
         
         forecasts = []
         
         for scenario in scenarios:
             for year in range(start_year, end_year + 1):
-                # Simplified Prophet-like forecast
-                nuclear_share_pred = 0.2 + 0.01 * (year - 2025)  # Placeholder
+                nuclear_share_pred = 0.2 + 0.01 * (year - 2025)
                 
                 forecasts.append({
                     'scenario_name': scenario,
@@ -463,13 +413,10 @@ class ProphetModel(BaseForecastingModel):
         return forecasts
     
     async def retrain(self, historical_data: pd.DataFrame):
-        """Retrain Prophet model"""
         self.is_trained = True
 
 
 class MLEnsembleModel(BaseForecastingModel):
-    """Machine learning ensemble model"""
-    
     async def forecast(
         self,
         historical_data: pd.DataFrame,
@@ -477,16 +424,12 @@ class MLEnsembleModel(BaseForecastingModel):
         end_year: int,
         scenarios: List[str]
     ) -> List[Dict]:
-        """Generate ML ensemble forecasts"""
-        # Simplified ML implementation
-        # In production, would use scikit-learn, xgboost, etc.
         
         forecasts = []
         
         for scenario in scenarios:
             for year in range(start_year, end_year + 1):
-                # Simplified ML-like forecast
-                nuclear_share_pred = 0.18 + 0.008 * (year - 2025)  # Placeholder
+                nuclear_share_pred = 0.18 + 0.008 * (year - 2025)
                 
                 forecasts.append({
                     'scenario_name': scenario,
@@ -503,14 +446,11 @@ class MLEnsembleModel(BaseForecastingModel):
         return forecasts
     
     async def retrain(self, historical_data: pd.DataFrame):
-        """Retrain ML ensemble model"""
         self.is_trained = True
 
 
-# Celery tasks for background forecasting
 @celery_app.task
 def generate_forecast_task(scenarios: List[str], start_year: int, end_year: int):
-    """Celery task for generating forecasts"""
     forecasting_service = ForecastingService()
     return asyncio.run(
         forecasting_service.generate_scenarios(scenarios, start_year, end_year)
@@ -519,6 +459,5 @@ def generate_forecast_task(scenarios: List[str], start_year: int, end_year: int)
 
 @celery_app.task
 def retrain_models_task():
-    """Celery task for model retraining"""
     forecasting_service = ForecastingService()
     return asyncio.run(forecasting_service._retrain_models())
