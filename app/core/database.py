@@ -34,7 +34,7 @@ def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def init_db():
     try:
         async with async_engine.begin() as conn:
-            from app.models import raw_data, processed_data, forecasts, analytics
+            from app.models import Base
             await conn.run_sync(Base.metadata.create_all)
         logger.info("Database tables created successfully")
     except Exception as e:

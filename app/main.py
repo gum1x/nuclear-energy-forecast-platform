@@ -54,7 +54,7 @@ def create_app() -> FastAPI:
     
     app = FastAPI(
         title="Nuclear Forecast Enterprise",
-        description="Professional nuclear energy forecasting and analytics platform",
+        description="Nuclear energy forecasting and analytics platform with real-time data integration",
         version="1.0.0",
         docs_url="/docs" if settings.debug else None,
         redoc_url="/redoc" if settings.debug else None,
@@ -70,10 +70,10 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(GZipMiddleware, minimum_size=1000)
     
-    app.include_router(forecasts.router, prefix="/api/v1/forecasts", tags=["forecasts"])
-    app.include_router(data.router, prefix="/api/v1/data", tags=["data"])
-    app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
-    app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
+    app.include_router(forecasts.forecasts_router, prefix="/api/v1/forecasts", tags=["forecasts"])
+    app.include_router(data.data_router, prefix="/api/v1/data", tags=["data"])
+    app.include_router(analytics.analytics_router, prefix="/api/v1/analytics", tags=["analytics"])
+    app.include_router(admin.admin_router, prefix="/api/v1/admin", tags=["admin"])
     
     @app.get("/health")
     async def health_check():
