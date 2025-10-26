@@ -1,11 +1,7 @@
-import asyncio
-import logging
-import os
 from contextlib import asynccontextmanager
-from typing import Dict, List, Optional, Any
 
 import structlog
-from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
@@ -18,9 +14,6 @@ from app.core.config import get_settings
 from app.core.database import init_db
 from app.core.logging import setup_logging
 from app.api.v1 import forecasts, data, analytics, admin
-from app.services.data_collector import DataCollectorService
-from app.services.forecasting import ForecastingService
-from app.services.celery_app import celery_app
 
 REQUEST_COUNT = Counter('http_requests_total', 'Total HTTP requests', ['method', 'endpoint'])
 REQUEST_DURATION = Histogram('http_request_duration_seconds', 'HTTP request duration')
@@ -37,13 +30,7 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("Database initialized")
     
-    data_collector = DataCollectorService()
-    forecasting_service = ForecastingService()
-    
-    asyncio.create_task(data_collector.start_periodic_collection())
-    asyncio.create_task(forecasting_service.start_model_retraining())
-    
-    logger.info("Background services started")
+    logger.info("Services initialized")
     
     yield
     

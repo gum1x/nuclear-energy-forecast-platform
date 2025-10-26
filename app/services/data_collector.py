@@ -39,53 +39,41 @@ class DataCollectorService(LoggerMixin):
         await asyncio.gather(*tasks, return_exceptions=True)
     
     async def _collect_eia_data(self):
-        while True:
-            try:
-                self.logger.info("Collecting EIA data")
-                data = await self.eia_client.get_electricity_data()
-                await self._store_eia_data(data)
-                self.logger.info("EIA data collected successfully")
-            except Exception as e:
-                self.logger.error("Failed to collect EIA data", error=str(e))
-            
-            await asyncio.sleep(settings.eia_refresh_interval * 60)
+        try:
+            self.logger.info("Collecting EIA data")
+            data = await self.eia_client.get_electricity_data()
+            await self._store_eia_data(data)
+            self.logger.info("EIA data collected successfully")
+        except Exception as e:
+            self.logger.error("Failed to collect EIA data", error=str(e))
     
     async def _collect_nerc_data(self):
-        while True:
-            try:
-                self.logger.info("Collecting NERC data")
-                data = await self.nerc_client.get_reliability_data()
-                await self._store_nerc_data(data)
-                self.logger.info("NERC data collected successfully")
-            except Exception as e:
-                self.logger.error("Failed to collect NERC data", error=str(e))
-            
-            await asyncio.sleep(settings.nerc_refresh_interval * 60)
+        try:
+            self.logger.info("Collecting NERC data")
+            data = await self.nerc_client.get_reliability_data()
+            await self._store_nerc_data(data)
+            self.logger.info("NERC data collected successfully")
+        except Exception as e:
+            self.logger.error("Failed to collect NERC data", error=str(e))
     
     async def _collect_worldbank_data(self):
-        while True:
-            try:
-                self.logger.info("Collecting World Bank data")
-                data = await self.worldbank_client.get_urbanization_data()
-                await self._store_worldbank_data(data)
-                self.logger.info("World Bank data collected successfully")
-            except Exception as e:
-                self.logger.error("Failed to collect World Bank data", error=str(e))
-            
-            await asyncio.sleep(settings.worldbank_refresh_interval * 60)
+        try:
+            self.logger.info("Collecting World Bank data")
+            data = await self.worldbank_client.get_urbanization_data()
+            await self._store_worldbank_data(data)
+            self.logger.info("World Bank data collected successfully")
+        except Exception as e:
+            self.logger.error("Failed to collect World Bank data", error=str(e))
     
     async def _collect_grid_data(self):
-        while True:
-            try:
-                self.logger.info("Collecting grid operator data")
-                for operator, client in self.grid_clients.items():
-                    data = await client.get_realtime_data()
-                    await self._store_grid_data(operator, data)
-                self.logger.info("Grid data collected successfully")
-            except Exception as e:
-                self.logger.error("Failed to collect grid data", error=str(e))
-            
-            await asyncio.sleep(5 * 60)
+        try:
+            self.logger.info("Collecting grid operator data")
+            for operator, client in self.grid_clients.items():
+                data = await client.get_realtime_data()
+                await self._store_grid_data(operator, data)
+            self.logger.info("Grid data collected successfully")
+        except Exception as e:
+            self.logger.error("Failed to collect grid data", error=str(e))
     
     async def _store_eia_data(self, data: List[Dict]):
         async with AsyncSessionLocal() as session:

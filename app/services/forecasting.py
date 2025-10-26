@@ -212,15 +212,12 @@ class ForecastingService(LoggerMixin):
                 raise
     
     async def start_model_retraining(self):
-        while True:
-            try:
-                self.logger.info("Starting model retraining")
-                await self._retrain_models()
-                self.logger.info("Model retraining completed")
-            except Exception as e:
-                self.logger.error("Model retraining failed", error=str(e))
-            
-            await asyncio.sleep(settings.model_retrain_interval * 3600)
+        try:
+            self.logger.info("Starting model retraining")
+            await self._retrain_models()
+            self.logger.info("Model retraining completed")
+        except Exception as e:
+            self.logger.error("Model retraining failed", error=str(e))
     
     async def _retrain_models(self):
         historical_data = await self._get_historical_data()
