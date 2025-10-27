@@ -446,7 +446,7 @@ class MLEnsembleModel(BaseForecastingModel):
         self.is_trained = True
 
 
-@celery_app.task
+@celery_app
 def generate_forecast_task(scenarios: List[str], start_year: int, end_year: int):
     forecasting_service = ForecastingService()
     return asyncio.run(
@@ -454,7 +454,7 @@ def generate_forecast_task(scenarios: List[str], start_year: int, end_year: int)
     )
 
 
-@celery_app.task
+@celery_app
 def retrain_models_task():
     forecasting_service = ForecastingService()
     return asyncio.run(forecasting_service._retrain_models())

@@ -213,13 +213,13 @@ class PerformanceAnalyzer(BaseInsightGenerator):
         return insights
 
 
-@celery_app.task
+@celery_app
 def generate_insights_task():
     analytics_service = AnalyticsService()
     return asyncio.run(analytics_service.generate_insights())
 
 
-@celery_app.task
+@celery_app
 def evaluate_performance_task():
     analytics_service = AnalyticsService()
     return asyncio.run(analytics_service.evaluate_model_performance())

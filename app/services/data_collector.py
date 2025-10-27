@@ -242,19 +242,19 @@ class CAISOClient(GridOperatorClient):
         return response.json()
 
 
-@celery_app.task
+@celery_app
 def collect_eia_data_task():
     collector = DataCollectorService()
     asyncio.run(collector._collect_eia_data())
 
 
-@celery_app.task
+@celery_app
 def collect_nerc_data_task():
     collector = DataCollectorService()
     asyncio.run(collector._collect_nerc_data())
 
 
-@celery_app.task
+@celery_app
 def collect_worldbank_data_task():
     collector = DataCollectorService()
     asyncio.run(collector._collect_worldbank_data())
