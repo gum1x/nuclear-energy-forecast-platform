@@ -93,14 +93,53 @@ def update_dashboard(n):
         ])
     ], className="g-4")
     
-    # Forecast chart
+    # Forecast chart - get real data
     fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=[2025, 2030, 2035, 2040, 2045, 2050],
-        y=[20, 25, 30, 35, 40, 45],
-        name="Base Scenario",
-        line=dict(color='blue', width=2)
-    ))
+    try:
+        with httpx.Client(timeout=5) as client:
+            resp = client.get("http://localhost:8000/api/v1/forecasts/scenarios")
+            if resp.status_code == 200:
+                data = resp.json()
+                scenarios_data = data.get("scenarios", [])
+                
+                # Group by scenario
+                scenarios = {}
+                for s in scenarios_data:
+                    name = s.get("scenario_name", "unknown")
+                    if name not in scenarios:
+                        scenarios[name] = {"x": [], "y": []}
+                    scenarios[name]["x"].append(s.get("year", 2025))
+                    scenarios[name]["y"].append(s.get("nuclear_share", 0) * 100)
+                
+                # Add traces for each scenario
+                colors = {"conservative": "red", "base": "blue", "aggressive": "green"}
+                for name, data_points in scenarios.items():
+                    color = colors.get(name, "gray")
+                    fig.add_trace(go.Scatter(
+                        x=data_points["x"],
+                        y=data_points["y"],
+                        name=name.title() + " Scenario",
+                        line=dict(color=color, width=2)
+                    ))
+                
+                if not scenarios:
+                    # Fallback to dummy data if no scenarios
+                    fig.add_trace(go.Scatter(
+                        x=[2025, 2030, 2035, 2040, 2045, 2050],
+                        y=[20, 25, 30, 35, 40, 45],
+                        name="Base Scenario (Demo)",
+                        line=dict(color='blue', width=2, dash='dash')
+                    ))
+    except Exception as e:
+        print(f"Error fetching forecast data: {e}")
+        # Fallback to dummy data
+        fig.add_trace(go.Scatter(
+            x=[2025, 2030, 2035, 2040, 2045, 2050],
+            y=[20, 25, 30, 35, 40, 45],
+            name="Base Scenario (Demo)",
+            line=dict(color='blue', width=2, dash='dash')
+        ))
+    
     fig.update_layout(
         title="Nuclear Energy Share Projection (%)",
         xaxis_title="Year",
